@@ -32,6 +32,7 @@ resource "aws_security_group" "allow_ssh" {
 
   vpc_id = aws_vpc.my_vpc.id
 
+
   ingress {
     from_port   = 22
     to_port     = 22
@@ -72,19 +73,36 @@ resource "aws_security_group" "allow_ssh" {
 # ------------------------------
 
 resource "aws_instance" "linux_server" {
-  count           = 4
-  ami             = "ami-0e2c8caa4b6378d8c" # Free-tier Ubuntu 24.04 LTS AMI ID for us-east-1
-  instance_type   = "t2.micro"              # Free-tier eligible instance type
-  subnet_id       = aws_subnet.my_subnet.id
-  security_groups = [aws_security_group.allow_ssh.name]
+  count                  = 4
+  ami                    = "ami-0e2c8caa4b6378d8c" # Free-tier Ubuntu 24.04 LTS AMI ID for us-east-1
+  instance_type          = "t2.micro"              # Free-tier eligible instance type
+  key_name               = "mk"                    # Replace this with your existing key pair name mine is mk
+  subnet_id              = aws_subnet.my_subnet.id
+  vpc_security_group_ids = [aws_security_group.allow_ssh.id]
+  user_data              = <<-EOF
+              #!/bin/bash
+              sudo apt update -y
+              sudo apt install docker.io -y
+              sudo systemctl enable docker
+              sudo systemctl start docker
+              curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+              echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+              sudo apt update
+              sudo apt install kubeadm kubelet kubectl -y
+              sudo apt-mark hold kubeadm kubelet kubectl
+              sudo swapoff -a
+              sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+              EOF
 
   tags = {
     Name = "LinuxServer-${count.index + 1}"
   }
 
-  # Key pair for SSH access (update with your key name)
-  key_name = "mk" # Replace this with your existing key pair name mine is mk
 }
+
+# ------------------------------
+# Outputs
+# ------------------------------
 
 output "server_ips" {
   value = aws_instance.linux_server.*.public_ip
