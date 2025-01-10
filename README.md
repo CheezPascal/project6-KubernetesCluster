@@ -93,3 +93,4 @@ Ensure the key pair name in the configuration matches an existing key pair in yo
 
 Permission Denied (SSH):
 Verify that the correct private key is used when connecting to the servers and that it has appropriate permissions (chmod 400).
+you have to wait for the config to load on the built instance 
